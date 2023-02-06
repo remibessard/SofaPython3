@@ -51,6 +51,7 @@ function(SP3_add_python_package)
     set(OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/${SP3_PYTHON_PACKAGES_DIRECTORY}/${A_TARGET_DIRECTORY})
 
     file(GLOB_RECURSE files RELATIVE ${A_SOURCE_DIRECTORY} ${A_SOURCE_DIRECTORY}/*)
+    list(FILTER files INCLUDE REGEX ".*(\\.py)$") # keep only py files
     foreach(file_relative_path ${files})
         set(file_absolute_path ${A_SOURCE_DIRECTORY}/${file_relative_path})
         configure_file(
@@ -86,7 +87,7 @@ endfunction()
 #  QUIET              - (input) if set, not information messages will be printed out.
 function(SP3_add_python_module)
     set(options QUIET)
-    set(oneValueArgs TARGET PACKAGE MODULE DESTINATION PYTHON_VERSION )
+    set(oneValueArgs TARGET TARGET_ALIAS PACKAGE MODULE DESTINATION PYTHON_VERSION INCLUDE_SOURCE_DIR INCLUDE_INSTALL_DIR)
     set(multiValueArgs SOURCES HEADERS DEPENDS)
 
     cmake_parse_arguments(A "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -123,7 +124,11 @@ function(SP3_add_python_module)
     # since we got some problems on MacOS using recent versions of pybind11 where the SHARED argument wasn't taken
     # into account
     python_add_library(${A_TARGET} SHARED "${A_SOURCES}")
+
     add_library(SofaPython3::${A_TARGET} ALIAS ${A_TARGET})
+    if (A_TARGET_ALIAS)
+        add_library(${A_TARGET_ALIAS} ALIAS ${A_TARGET})
+    endif ()
 
     if ("${pybind11_VERSION}" VERSION_GREATER_EQUAL "2.6.0")
         target_link_libraries(${A_TARGET} PRIVATE pybind11::headers)
@@ -333,6 +338,79 @@ function(SP3_add_python_module)
         )
     endif()
 
+    set(include_source_dir "${CMAKE_CURRENT_SOURCE_DIR}")
+    if(A_INCLUDE_SOURCE_DIR)
+        if(IS_ABSOLUTE "${A_INCLUDE_SOURCE_DIR}")
+            set(include_source_dir "${A_INCLUDE_SOURCE_DIR}")
+        else()
+            set(include_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/${A_INCLUDE_SOURCE_DIR}")
+        endif()
+    endif()
+
+    set(example_install_dir "share/sofa/examples/${A_PACKAGE}")
+    if(ARG_EXAMPLE_INSTALL_DIR)
+        set(example_install_dir "${ARG_EXAMPLE_INSTALL_DIR}")
+    endif()
+
+    get_target_property(target_type ${A_TARGET} TYPE)
+    # Configure and install headers
+    get_target_property(target_sources ${A_TARGET} SOURCES)
+    if(NOT target_sources)
+        set(target_sources ${A_HEADERS} )
+    else()
+        list(APPEND target_sources ${A_HEADERS} )
+    endif()
+    list(FILTER target_sources INCLUDE REGEX ".*(\\.h\\.in|\\.h|\\.inl)$") # keep only headers
+    foreach(header_file ${target_sources})
+        if(NOT IS_ABSOLUTE "${header_file}")
+            set(header_file "${CMAKE_CURRENT_SOURCE_DIR}/${header_file}")
+        endif()
+        if("${header_file}" MATCHES "${CMAKE_CURRENT_BINARY_DIR}/.*")
+            file(RELATIVE_PATH header_relative_path "${CMAKE_CURRENT_BINARY_DIR}" "${header_file}")
+        else()
+            file(RELATIVE_PATH header_relative_path "${include_source_dir}" "${header_file}")
+        endif()
+        get_filename_component(header_relative_dir ${header_relative_path} DIRECTORY)
+
+        get_filename_component(header_filename ${header_file} NAME_WE)
+
+        # Optimize build dir
+        set(header_relative_dir_for_build "${header_relative_dir}")
+        string(REPLACE "../" "" header_relative_dir_for_build "${header_relative_dir_for_build}") # keep out-of-tree headers
+        if("${target}" STREQUAL "${A_PACKAGE}") # Target is a package
+            if("${header_relative_dir_for_build}" STREQUAL "") # Headers are not in a subdirectory
+                set(header_relative_dir_for_build "${target}")
+            endif()
+            if(NOT "${header_relative_dir_for_build}" MATCHES "^sofa$" AND
+               NOT "${header_relative_dir_for_build}" MATCHES "^sofa/" AND
+               NOT "${A_INCLUDE_INSTALL_DIR}/${header_relative_dir_for_build}" MATCHES "${target}/${target}")
+                # Force include/PackageName/PackageName/... layout for package headers in build directory
+                set(header_relative_dir_for_build "${target}/${header_relative_dir_for_build}")
+            endif()
+        endif()
+
+        # Finalize dirs
+        if(ARG_RELOCATABLE)
+            set(header_install_dir "include/${header_relative_dir_for_build}")
+        else()
+            # headers install-dir tree = headers build-dir tree
+            set(header_install_dir "include/${A_INCLUDE_INSTALL_DIR}/${header_relative_dir_for_build}")
+        endif()
+        file(TO_CMAKE_PATH "${header_install_dir}" header_install_dir)
+
+        # Configure and install
+        get_target_property(public_header ${target} PUBLIC_HEADER)
+        if(header_file MATCHES ".*\\.h\\.in$")
+            # header to configure and install
+            file(TO_CMAKE_PATH "${CMAKE_BINARY_DIR}/include/${A_INCLUDE_INSTALL_DIR}/${header_relative_dir_for_build}/${header_filename}.h" configured_file)
+            configure_file("${header_file}" "${configured_file}")
+            install(FILES "${configured_file}" DESTINATION "${header_install_dir}" COMPONENT headers)
+
+        elseif("${public_header}" STREQUAL "public_header-NOTFOUND" AND NOT "${A_INCLUDE_INSTALL_DIR}" STREQUAL "")
+            # header to install
+            install(FILES ${header_file} DESTINATION "${header_install_dir}" COMPONENT headers)
+        endif()
+    endforeach()
 
     if (A_PACKAGE)
         install(
