@@ -51,6 +51,7 @@ function(SP3_add_python_package)
     set(OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/${SP3_PYTHON_PACKAGES_DIRECTORY}/${A_TARGET_DIRECTORY})
 
     file(GLOB_RECURSE files RELATIVE ${A_SOURCE_DIRECTORY} ${A_SOURCE_DIRECTORY}/*)
+    list(FILTER files INCLUDE REGEX ".*(\\.py)$") # keep only py files
     foreach(file_relative_path ${files})
         set(file_absolute_path ${A_SOURCE_DIRECTORY}/${file_relative_path})
         configure_file(

@@ -21,7 +21,7 @@ SP3_add_python_module(
     DESTINATION  .
     SOURCES      ${SOURCE_FILES}
     HEADERS      ${HEADER_FILES}
-    DEPENDS      SofaExporter SofaPython3::Plugin SofaPython3::Bindings.Sofa.Core
+    DEPENDS      Sofa.Component.IO.Mesh SofaPython3::Plugin SofaPython3::Bindings.Sofa.Core
 )
 
 sofa_create_component_in_package_with_targets(
