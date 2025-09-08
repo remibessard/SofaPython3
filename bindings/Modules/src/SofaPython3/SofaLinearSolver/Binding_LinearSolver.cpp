@@ -53,6 +53,7 @@ EigenSparseMatrix toEigen<SReal>(sofa::linearalgebra::CompressedRowSparseMatrix<
                     (EigenMatrixMap::StorageIndex*)matrix.rowBegin.data(), (EigenMatrixMap::StorageIndex*)matrix.colsIndex.data(), matrix.colsValue.data());
 }
 
+
 template<class TBlock>
 void bindLinearSolvers(py::module &m)
 {
@@ -100,10 +101,167 @@ void bindLinearSolvers(py::module &m)
     });
 }
 
+void bindMatrixFreeLinearSolvers(py::module& m)
+{
+    //< component::linearsolver::GraphScatkteredMatrix, component::linearsolver::GraphScatteredVector
+    using GSV = sofa::component::linearsolver::GraphScatteredVector;
+    using GSLinearSolver = sofa::component::linearsolver::MatrixLinearSolver<sofa::component::linearsolver::GraphScatteredMatrix, GSV >;
+
+    const std::string typeName = GSLinearSolver::GetClass()->className + GSLinearSolver::GetCustomTemplateName();
+
+    py::class_<GSLinearSolver,
+        sofa::core::objectmodel::BaseObject,
+        sofapython3::py_shared_ptr<GSLinearSolver> > c(m, typeName.c_str(), sofapython3::doc::linearsolver::linearSolverClass);
+
+    c.def("x", [](GSLinearSolver& self) -> Vector
+    {
+        if (const GSV* vector = self.getSystemLHVector())
+        {
+            sofa::simulation::common::VectorOperations vop(sofa::core::execparams::defaultInstance(), self.getContext());
+
+            sofa::core::behavior::MechanicalState<sofa::defaulttype::Vec3dTypes>* mstate;
+            sofa::type::vector < sofa::core::behavior::MechanicalState<sofa::defaulttype::Vec3dTypes>*> mstates;
+            self.getContext()->getObjects(mstates, sofa::core::objectmodel::BaseContext::SearchDown);
+            if (mstates.size())
+            {
+                sofa::defaulttype::Vec3dTypes::VecCoord accXVectors;
+
+                for (auto mstate : mstates)
+                {
+                    const sofa::defaulttype::Vec3dTypes::VecCoord& xvec = (vector->id()[mstate].read())->getValue();
+                    for (size_t i = 0; i < xvec.size(); i++)
+                    {
+                        accXVectors.push_back(xvec[i]);
+                    }
+                }
+                return EigenVectorMap(accXVectors.data()->ptr(), sofa::defaulttype::Vec3dTypes::spatial_dimensions * accXVectors.size());
+            }
+            else
+                std::cout << "Python error in LinearSolver setSystemLHVector() :\nWe cannot find mechanicalObject to look into from LinearSolver" << std::endl;
+                        }
+        return {};
+    }, sofapython3::doc::linearsolver::linearSolver_x);
+
+    c.def("b", [](GSLinearSolver& self) -> Vector
+    {
+        if (const GSV* vector = self.getSystemRHVector())
+        {
+            sofa::simulation::common::VectorOperations vop(sofa::core::execparams::defaultInstance(), self.getContext());
+
+            sofa::core::behavior::MechanicalState<sofa::defaulttype::Vec3dTypes>* mstate;
+            sofa::type::vector < sofa::core::behavior::MechanicalState<sofa::defaulttype::Vec3dTypes>*> mstates;
+            self.getContext()->getObjects(mstates, sofa::core::objectmodel::BaseContext::SearchDown);
+            if (mstates.size())
+            {
+                sofa::defaulttype::Vec3dTypes::VecCoord accXVectors;
+
+                for (auto mstate : mstates)
+                {
+                    const sofa::defaulttype::Vec3dTypes::VecCoord& bvec = (vector->id()[mstate].read())->getValue();
+                    for (size_t i = 0; i < bvec.size(); i++)
+                    {
+                        accXVectors.push_back(bvec[i]);
+                    }
+                }
+                return EigenVectorMap(accXVectors.data()->ptr(), sofa::defaulttype::Vec3dTypes::spatial_dimensions * accXVectors.size());
+            }
+            else
+                std::cout << "Python error in LinearSolver setSystemLHVector() :\nWe cannot find any MechanicalObject from LinearSolver context and childs, we cannot get b" << std::endl;
+        }
+        return {};
+    }, sofapython3::doc::linearsolver::linearSolver_b);
+
+    c.def("setSystemLHVector", [](GSLinearSolver& self, py::object vecObject)
+    {
+        if (GSV* vecLH = self.getSystemLHVector())
+        {
+            sofa::simulation::common::VectorOperations vop(sofa::core::execparams::defaultInstance(), self.getContext());
+            sofa::core::behavior::MultiVecCoord x(&vop, vecLH);
+
+            auto vector = py::cast<py::array_t<double, py::array::c_style | py::array::forcecast>>(vecObject);
+            if (x.size() != vector.size())
+            {
+                std::cerr << "Python error in LinearSolver setSystemLHVector() :\nSize mismatch between X  (accross SOFA mechanicalstates, =" << x.size() << ") and input vector" << std::endl;
+                return false;
+            }
+
+            // sofa::core::behavior::MechanicalState<sofa::defaulttype::Vec3dTypes>* mstate;
+            sofa::type::vector < sofa::core::behavior::MechanicalState<sofa::defaulttype::Vec3dTypes>*> mstates;
+            self.getContext()->getObjects(mstates, sofa::core::objectmodel::BaseContext::SearchDown);
+            if (mstates.size())
+            {
+                int vId = 0;
+                auto vec = vector.unchecked<1>();
+
+                for (auto mstate : mstates)
+                {
+                    auto xvec = sofa::helper::getWriteAccessor(*vecLH->id()[mstate].write());
+                    for (size_t i = 0; i < xvec.size(); i++)
+                    {
+                        xvec[i] = sofa::defaulttype::Vec3dTypes::Coord(vec(vId), vec(vId + 1), vec(vId + 2));
+                        vId += 3;
+                    }
+                }
+            }
+            return true;
+        }
+        return false;
+    });
+
+    c.def("setSystemRHVector", [](GSLinearSolver& self, py::object vecObject)
+    {
+        if (GSV* vecRH = self.getSystemRHVector())
+        {
+            sofa::simulation::common::VectorOperations vop(sofa::core::execparams::defaultInstance(), self.getContext());
+            sofa::core::behavior::MultiVecCoord b(&vop, vecRH);
+
+            auto vector = py::cast<py::array_t<double, py::array::c_style | py::array::forcecast>>(vecObject);
+            if (b.size() != vector.size())
+            {
+                std::cerr << "Python error in LinearSolver setSystemRHVector() :\nSize mismatch between B (accross SOFA mechanicalstates, =" << b.size() << ") and input vector" << std::endl;
+                return false;
+            }
+
+            //sofa::type::vector < sofa::core::behavior::BaseMechanicalState*> mstates;
+            sofa::type::vector < sofa::core::behavior::MechanicalState<sofa::defaulttype::Vec3dTypes>*> mstates;
+            self.getContext()->getObjects(mstates, sofa::core::objectmodel::BaseContext::SearchDown);
+
+            if (mstates.size())
+            {
+                int vId = 0;
+                auto vec = vector.unchecked<1>();
+
+                for (auto mstate : mstates)
+                {
+                    auto xvec = sofa::helper::getWriteAccessor(*vecRH->id()[mstate].write());
+                    for (size_t i = 0; i < xvec.size(); i++)
+                    {
+                        xvec[i] = sofa::defaulttype::Vec3dTypes::Coord(vec(vId), vec(vId+1), vec(vId+2));
+                        vId += 3;
+                    }
+                }
+            }
+            return true;
+        }
+        return false;
+    });
+
+    c.def("solveSystem", py::overload_cast<>(&GSLinearSolver::solveSystem), sofapython3::doc::linearsolver::linearSolver_solveSystem);
+
+    /// register the binding in the downcasting subsystem
+    PythonFactory::registerType<GSLinearSolver>([](sofa::core::objectmodel::Base* object)
+        {
+            return py::cast(dynamic_cast<GSLinearSolver*>(object));
+        });
+}
+
+
 void moduleAddLinearSolver(py::module &m)
 {
     bindLinearSolvers<SReal>(m);
     bindLinearSolvers<sofa::type::Mat<3, 3, SReal> >(m);
+
+    bindMatrixFreeLinearSolvers(m);
 }
 
 }
