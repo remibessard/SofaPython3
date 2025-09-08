@@ -40,6 +40,7 @@ Returns the global system matrix as a scipy sparse matrix
 example:
 ------------
 linear_solver = root.addObject('SparseLDLSolver', template='CompressedRowSparseMatrixd')
+# linear_solver = root.addObject('CGLinearSolver', template='GraphScattered')
 matrix = linear_solver.A()
 )";
 
@@ -50,6 +51,7 @@ Returns the global system right hand side as a numpy array
 example:
 ------------
 linear_solver = root.addObject('SparseLDLSolver', template='CompressedRowSparseMatrixd')
+# linear_solver = root.addObject('CGLinearSolver', template='GraphScattered')
 matrix = linear_solver.b()
 )";
 
@@ -60,7 +62,18 @@ Returns the global system solution vector as a numpy array
 example:
 ------------
 linear_solver = root.addObject('SparseLDLSolver', template='CompressedRowSparseMatrixd')
+# linear_solver = root.addObject('CGLinearSolver', template='GraphScattered')
 matrix = linear_solver.x()
+)";
+
+static auto linearSolver_solveSystem =
+R"(
+solve the system in the GraphScattered linear_solver
+
+example:
+------------
+linear_solver = root.addObject('CGLinearSolver', template='GraphScattered')
+matrix = linear_solver.solveSystem()
 )";
 
 } // namespace sofapython3::doc::baseCamera
