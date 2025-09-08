@@ -144,6 +144,12 @@ void BindingBase::SetAttr(py::object self, const std::string& s, py::object valu
         SetData(d, value);
         return;
     }
+    d = self_d->findDataInVectorData(s);
+    if (d != nullptr)
+    {
+        SetData(d, value);
+        return;
+    }
 
     BaseLink* l = self_d->findLink(s);
     if(l!=nullptr)

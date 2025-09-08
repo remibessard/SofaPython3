@@ -25,6 +25,8 @@
 #include <sofa/core/objectmodel/Base.h>
 #include <sofa/core/objectmodel/BaseData.h>
 
+#include <SofaPython3/config.h>
+
 namespace sofapython3 {
 
 template <typename T>
@@ -36,7 +38,7 @@ PYBIND11_DECLARE_HOLDER_TYPE(T, sofapython3::py_shared_ptr<T>, true)
 
 namespace sofapython3 {
 
-class BindingBase
+class SOFAPYTHON3_API BindingBase
 {
 public:
     static void SetAttr(sofa::core::objectmodel::Base& self, const std::string& s, pybind11::object value);
