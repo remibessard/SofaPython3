@@ -42,6 +42,9 @@ namespace py { using namespace pybind11; }
 /// To bring in the `_a` literal
 using namespace pybind11::literals;
 
+using Vector = Eigen::Matrix<SReal, Eigen::Dynamic, 1>;
+using EigenVectorMap = Eigen::Map<Vector>;
+
 namespace sofapython3
 {
     using sofa::core::Mapping;
@@ -173,8 +176,57 @@ namespace sofapython3
         }));
     }
 
+    template<class In, class Out>
+    void declareRigidMapping(py::module& m) {
+        const std::string pyclass_name = std::string("RigidMapping_") + In::Name() + "_" + Out::Name();
+
+        py::class_<sofa::component::mapping::nonlinear::RigidMapping<In, Out>, BaseObject, py_shared_ptr<sofa::component::mapping::nonlinear::RigidMapping<In, Out>>> rmg(m, pyclass_name.c_str(), "Test RIgidMapping");
+
+        rmg.def("external_applyJT", [](sofa::component::mapping::nonlinear::RigidMapping<In, Out>& self, py::object inVec) -> Vector
+            {
+                auto inVector = py::cast<py::array_t<double, py::array::c_style | py::array::forcecast>>(inVec).unchecked<1>();
+                if (inVector.size() % self.NOut != 0)
+                {
+                    msg_error("RigidMapping-binding") << "We cannot call applyJt with this inVec parameter. Sizes mismatch";
+                    return {};
+                }
+
+                using MappingType = typename sofa::component::mapping::nonlinear::RigidMapping<In, Out>;
+                using InDataVecDeriv = typename MappingType::InDataVecDeriv;
+                using OutDataVecDeriv = typename MappingType::OutDataVecDeriv;
+
+                InDataVecDeriv  out;
+                OutDataVecDeriv in;
+
+                typename MappingType::InVecDeriv ivd;
+                typename MappingType::OutVecDeriv ovd;
+                for (size_t i = 0; i < (inVector.size() / self.NOut); i++)
+                {
+                    ovd.push_back(MappingType::OutDeriv(inVector(3 * i), inVector(3 * i + 1), inVector(3 * i + 2)));
+                    ivd.push_back(MappingType::InDeriv());
+                }
+                in.setValue(ovd);
+                out.setValue(ivd);
+
+                sofa::core::ExecParams* execparams = sofa::core::execparams::defaultInstance();
+                sofa::core::MechanicalParams mparams(*execparams);
+                {
+                    self.applyJT(&mparams, out, in);
+                }
+                typename MappingType::InVecDeriv ivdout = out.getValue();
+
+                return EigenVectorMap(ivdout.data()->ptr(), self.NIn* out.getValue().size());
+
+        });
+
+    }
+
     void moduleAddMapping(py::module &m) {
         declareMapping<Rigid3dTypes, Vec3dTypes>(m);
+        declareMapping<Vec3dTypes, Vec3dTypes>(m);
+        declareMapping<Vec3dTypes, Vec1dTypes>(m);
+
+        declareRigidMapping<Rigid3dTypes, Vec3dTypes>(m);
         declareMapping<Vec3dTypes, Vec3dTypes>(m);
         declareMapping<Vec3dTypes, Vec1dTypes>(m);
     }

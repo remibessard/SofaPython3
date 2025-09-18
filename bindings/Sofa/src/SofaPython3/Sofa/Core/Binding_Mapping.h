@@ -22,6 +22,7 @@
 
 #include <sofa/core/BaseMapping.h>
 #include <sofa/core/Mapping.h>
+#include <sofa/component/mapping/nonlinear/RigidMapping.h>
 #include <sofa/defaulttype/VecTypes.h>
 #include <sofa/core/MechanicalParams.h>
 #include <pybind11/pybind11.h>
