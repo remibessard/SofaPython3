@@ -190,7 +190,7 @@ void bindMatrixFreeLinearSolvers(py::module& m)
                 if (rmstate)
                 {
                     auto xvec = sofa::helper::getWriteAccessor(*vecLH->id()[rmstate].write());
-                    if (vec.size() >= (3 * xvec.size()))
+                    if (vec.size() >= (6 * xvec.size()))
                     {
                         for (size_t i = 0; i < xvec.size(); i++)
                         {
@@ -200,7 +200,10 @@ void bindMatrixFreeLinearSolvers(py::module& m)
                         return true;
                     }
                     else
+                    {
                         std::cerr << "Python error in LinearSolver setSystemLHVector() :\nSize mismatch between X (in mechanicalstates " << mstateLink.cast<std::string>() << ", =" << xvec.size() << ") and input vector (" << vec.size() << ")" << std::endl;
+                        return false;
+                    }
                 }
                 sofa::core::behavior::MechanicalState<sofa::defaulttype::Vec3Types>* mstate = nullptr;
                 self.getContext()->findLinkDest(mstate, mstateLink.cast<std::string>(), nullptr);
@@ -212,12 +215,15 @@ void bindMatrixFreeLinearSolvers(py::module& m)
                         for (size_t i = 0; i < xvec.size(); i++)
                         {
                             xvec[i] = sofa::defaulttype::Vec3dTypes::Coord(vec(vId), vec(vId + 1), vec(vId + 2));
-                            vId += 6;
+                            vId += 3;
                         }
                         return true;
                     }
                     else
+                    {
                         std::cerr << "Python error in LinearSolver setSystemLHVector() :\nSize mismatch between X (in mechanicalstates " << mstateLink.cast<std::string>() << ", =" << xvec.size() << ") and input vector (" << vec.size() << ")" << std::endl;
+                        return false;
+                    }
                 }
             }
         }
@@ -239,7 +245,7 @@ void bindMatrixFreeLinearSolvers(py::module& m)
                 if (rmstate)
                 {
                     auto xvec = sofa::helper::getWriteAccessor(*vecRH->id()[rmstate].write());
-                    if (vec.size() >= (3 * xvec.size()))
+                    if (vec.size() >= (6 * xvec.size()))
                     {
                         for (size_t i = 0; i < xvec.size(); i++)
                         {
@@ -249,7 +255,10 @@ void bindMatrixFreeLinearSolvers(py::module& m)
                         return true;
                     }
                     else
+                    {
                         std::cerr << "Python error in LinearSolver setSystemLHVector() :\nSize mismatch between X (in mechanicalstates " << mstateLink.cast<std::string>() << ", =" << xvec.size() << ") and input vector (" << vec.size() << ")" << std::endl;
+                        return false;
+                    }
                 }
                 sofa::core::behavior::MechanicalState<sofa::defaulttype::Vec3Types>* mstate = nullptr;
                 self.getContext()->findLinkDest(mstate, mstateLink.cast<std::string>(), nullptr);
@@ -261,12 +270,15 @@ void bindMatrixFreeLinearSolvers(py::module& m)
                         for (size_t i = 0; i < xvec.size(); i++)
                         {
                             xvec[i] = sofa::defaulttype::Vec3dTypes::Coord(vec(vId), vec(vId + 1), vec(vId + 2));
-                            vId += 6;
+                            vId += 3;
                         }
                         return true;
                     }
                     else
+                    {
                         std::cerr << "Python error in LinearSolver setSystemLHVector() :\nSize mismatch between X (in mechanicalstates " << mstateLink.cast<std::string>() << ", =" << xvec.size() << ") and input vector (" << vec.size() << ")" << std::endl;
+                        return false;
+                    }
                 }
             }
 
