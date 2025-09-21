@@ -227,8 +227,6 @@ namespace sofapython3
         declareMapping<Vec3dTypes, Vec1dTypes>(m);
 
         declareRigidMapping<Rigid3dTypes, Vec3dTypes>(m);
-        declareMapping<Vec3dTypes, Vec3dTypes>(m);
-        declareMapping<Vec3dTypes, Vec1dTypes>(m);
     }
 
 }  // namespace sofapython3
