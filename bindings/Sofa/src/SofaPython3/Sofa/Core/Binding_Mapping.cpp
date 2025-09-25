@@ -182,7 +182,39 @@ namespace sofapython3
 
         py::class_<sofa::component::mapping::nonlinear::RigidMapping<In, Out>, BaseObject, py_shared_ptr<sofa::component::mapping::nonlinear::RigidMapping<In, Out>>> rmg(m, pyclass_name.c_str(), "Test RIgidMapping");
 
-        rmg.def("external_applyJT", [](sofa::component::mapping::nonlinear::RigidMapping<In, Out>& self, py::object inVec) -> Vector
+        //if rigidIndexPerPoint Data is set in RigidMapping, be careful to send as much RidigDeriv in inVec as max(indices)+1
+        rmg.def("external_applyJ", [](sofa::component::mapping::nonlinear::RigidMapping<In, Out>& self, const py::object inVec) -> Vector
+            {
+                auto inVector = py::cast<py::array_t<double, py::array::c_style | py::array::forcecast>>(inVec).unchecked<1>();
+                if (inVector.size() % self.NIn != 0)
+                {
+                    msg_error("RigidMapping-binding") << "We cannot call applyJ with this inVec parameter. Sizes mismatch (should be a bench of 6 values, i.e. dim RigidDeriv)";
+                    return {};
+                }
+
+                using MappingType = typename sofa::component::mapping::nonlinear::RigidMapping<In, Out>;
+                using InDataVecDeriv = typename MappingType::InDataVecDeriv;
+                using OutDataVecDeriv = typename MappingType::OutDataVecDeriv;
+
+                OutDataVecDeriv out;
+
+                InDataVecDeriv  in;
+                typename MappingType::InVecDeriv ivd;
+                ivd.push_back(MappingType::InDeriv(sofa::type::Vec3d(inVector(0), inVector(1), inVector(2)), sofa::type::Vec3d(inVector(3), inVector(4), inVector(5))));
+                in.setValue(ivd);
+
+                sofa::core::ExecParams* execparams = sofa::core::execparams::defaultInstance();
+                sofa::core::MechanicalParams mparams(*execparams);
+                {
+                    self.applyJ(&mparams, out, in);
+                }
+                typename MappingType::OutVecDeriv ivdout = out.getValue();
+
+                return EigenVectorMap(ivdout.data()->ptr(), self.NOut* out.getValue().size());
+        });
+
+            //this calls the applyJT of the RigidMapping, using the rotatedPoints computed during the apply of the mapping at last simulation step.
+            rmg.def("external_applyJT", [](sofa::component::mapping::nonlinear::RigidMapping<In, Out>& self, const py::object inVec) -> Vector
             {
                 auto inVector = py::cast<py::array_t<double, py::array::c_style | py::array::forcecast>>(inVec).unchecked<1>();
                 if (inVector.size() % self.NOut != 0)
@@ -195,17 +227,17 @@ namespace sofapython3
                 using InDataVecDeriv = typename MappingType::InDataVecDeriv;
                 using OutDataVecDeriv = typename MappingType::OutDataVecDeriv;
 
-                InDataVecDeriv  out;
                 OutDataVecDeriv in;
-
-                typename MappingType::InVecDeriv ivd;
                 typename MappingType::OutVecDeriv ovd;
                 for (size_t i = 0; i < (inVector.size() / self.NOut); i++)
                 {
                     ovd.push_back(MappingType::OutDeriv(inVector(3 * i), inVector(3 * i + 1), inVector(3 * i + 2)));
-                    ivd.push_back(MappingType::InDeriv());
                 }
                 in.setValue(ovd);
+
+                InDataVecDeriv  out;
+                typename MappingType::InVecDeriv ivd;
+                ivd.push_back(MappingType::InDeriv());
                 out.setValue(ivd);
 
                 sofa::core::ExecParams* execparams = sofa::core::execparams::defaultInstance();
