@@ -182,12 +182,13 @@ namespace sofapython3
 
         py::class_<sofa::component::mapping::nonlinear::RigidMapping<In, Out>, BaseObject, py_shared_ptr<sofa::component::mapping::nonlinear::RigidMapping<In, Out>>> rmg(m, pyclass_name.c_str(), "Test RIgidMapping");
 
+        //if rigidIndexPerPoint Data is set in RigidMapping, be careful to send as much RidigDeriv in inVec as max(indices)+1
         rmg.def("external_applyJ", [](sofa::component::mapping::nonlinear::RigidMapping<In, Out>& self, const py::object inVec) -> Vector
             {
                 auto inVector = py::cast<py::array_t<double, py::array::c_style | py::array::forcecast>>(inVec).unchecked<1>();
-                if (inVector.size() != 6)
+                if (inVector.size() % self.NIn != 0)
                 {
-                    msg_error("RigidMapping-binding") << "We cannot call applyJ with this inVec parameter. Sizes mismatch  (should be 6, i.e. dim RigidDeriv)";
+                    msg_error("RigidMapping-binding") << "We cannot call applyJ with this inVec parameter. Sizes mismatch (should be a bench of 6 values, i.e. dim RigidDeriv)";
                     return {};
                 }
 
