@@ -200,7 +200,12 @@ namespace sofapython3
 
                 InDataVecDeriv  in;
                 typename MappingType::InVecDeriv ivd;
-                ivd.push_back(MappingType::InDeriv(sofa::type::Vec3d(inVector(0), inVector(1), inVector(2)), sofa::type::Vec3d(inVector(3), inVector(4), inVector(5))));
+                ivd.push_back(typename MappingType::InDeriv(sofa::type::Vec3d(inVector(0),
+                                                                              inVector(1),
+                                                                              inVector(2)),
+                                                            sofa::type::Vec3d(inVector(3),
+                                                                              inVector(4),
+                                                                              inVector(5))));
                 in.setValue(ivd);
 
                 sofa::core::ExecParams* execparams = sofa::core::execparams::defaultInstance();
@@ -231,13 +236,15 @@ namespace sofapython3
                 typename MappingType::OutVecDeriv ovd;
                 for (size_t i = 0; i < (inVector.size() / self.NOut); i++)
                 {
-                    ovd.push_back(MappingType::OutDeriv(inVector(3 * i), inVector(3 * i + 1), inVector(3 * i + 2)));
+                    ovd.push_back(typename MappingType::OutDeriv(inVector(3 * i),
+                                                                 inVector(3 * i + 1),
+                                                                 inVector(3 * i + 2)));
                 }
                 in.setValue(ovd);
 
                 InDataVecDeriv  out;
                 typename MappingType::InVecDeriv ivd;
-                ivd.push_back(MappingType::InDeriv());
+                ivd.push_back(typename MappingType::InDeriv());
                 out.setValue(ivd);
 
                 sofa::core::ExecParams* execparams = sofa::core::execparams::defaultInstance();
